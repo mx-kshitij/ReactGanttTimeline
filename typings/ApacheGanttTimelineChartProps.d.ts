@@ -18,7 +18,7 @@ export interface ApacheGanttTimelineChartContainerProps {
     parentUuidAttribute?: ListAttributeValue<Big | string>;
     startDatetimeAttribute: ListAttributeValue<Date>;
     endDatetimeAttribute: ListAttributeValue<Date>;
-    popupWidget?: ListWidgetValue;
+    tooltipHTMLAttribute?: ListAttributeValue<string>;
     detailWidget?: ListWidgetValue;
     colorAttribute?: ListAttributeValue<string>;
     onClickAction?: ListActionValue;
@@ -43,7 +43,7 @@ export interface ApacheGanttTimelineChartPreviewProps {
     parentUuidAttribute: string;
     startDatetimeAttribute: string;
     endDatetimeAttribute: string;
-    popupWidget: { widgetCount: number; renderer: ComponentType<{ children: ReactNode; caption?: string }> };
+    tooltipHTMLAttribute: string;
     detailWidget: { widgetCount: number; renderer: ComponentType<{ children: ReactNode; caption?: string }> };
     colorAttribute: string;
     onClickAction: {} | null;

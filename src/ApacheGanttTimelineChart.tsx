@@ -35,34 +35,13 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
     const seriesData: any[] = [];
     let rowIndex = 0;
 
-    console.info("[ApacheGanttTimelineChart] transformData called");
-    console.info("[ApacheGanttTimelineChart] itemsDatasource status:", props.itemsDatasource?.status);
-    console.info("[ApacheGanttTimelineChart] itemsDatasource limit:", props.itemsDatasource?.limit);
-    console.info("[ApacheGanttTimelineChart] itemsDatasource offset:", props.itemsDatasource?.offset);
-    console.info("[ApacheGanttTimelineChart] itemsDatasource hasMoreItems:", props.itemsDatasource?.hasMoreItems);
-    console.info("[ApacheGanttTimelineChart] items count:", props.itemsDatasource?.items?.length);
-
     // Validate required props
     if (!props.itemsDatasource?.items || props.itemsDatasource.items.length === 0) {
-      if (props.itemsDatasource?.status === "available") {
-        console.warn("[ApacheGanttTimelineChart] Datasource is AVAILABLE but returning 0 items. Check your Mendix datasource configuration:");
-        console.warn("  - Verify the datasource is bound to the correct entity");
-        console.warn("  - Check if the data source (microflow/nanoflow/database) is returning data");
-        console.warn("  - Review any filters applied to the datasource");
-        console.warn("  - Datasource details:", {
-          status: props.itemsDatasource.status,
-          limit: props.itemsDatasource.limit,
-          offset: props.itemsDatasource.offset,
-          hasMoreItems: props.itemsDatasource.hasMoreItems
-        });
-      }
-      console.info("[ApacheGanttTimelineChart] No items in datasource, returning empty");
       setProgress(0);
       return { categories, seriesData };
     }
 
     const totalItems = props.itemsDatasource.items.length;
-    console.info("[ApacheGanttTimelineChart] Processing", totalItems, "items");
 
     // Update progress at start
     setProgress(10);
@@ -145,6 +124,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       const durationMin = Math.round((endTime - startTime) / 60000);
       const colorValue = props.colorAttribute ? props.colorAttribute?.get(item).value : undefined;
       const color = colorValue || "#1890ff";
+      const tooltipHTML = props.tooltipHTMLAttribute ? props.tooltipHTMLAttribute?.get(item).value : undefined;
 
       // If item has a parent and parent hasn't been added yet, add parent row
       if (props.parentUuidAttribute) {
@@ -180,6 +160,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         state: "normal",
         startStr: new Date(startDate).toLocaleString(),
         endStr: new Date(endDate).toLocaleString(),
+        tooltipHTML: tooltipHTML,
         originalObject: item
       });
 
@@ -197,11 +178,6 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
     }
 
     setProgress(100);
-    console.info("[ApacheGanttTimelineChart] transformData result - categories:", categories.length, "seriesData:", seriesData.length);
-    if (seriesData.length > 0) {
-      console.info("[ApacheGanttTimelineChart] First series item:", seriesData[0]);
-      console.info("[ApacheGanttTimelineChart] First category:", categories[0]);
-    }
     return { categories, seriesData };
   };
 
@@ -224,11 +200,8 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
 
       const { categories, seriesData } = transformData();
 
-      console.info("[ApacheGanttTimelineChart] renderChart - categories:", categories.length, "seriesData:", seriesData.length);
-
       // If no data, show placeholder
       if (categories.length === 0 || seriesData.length === 0) {
-        console.info("[ApacheGanttTimelineChart] No data, showing placeholder");
         chartInstance.current.clear();
         setIsLoading(false);
         return;
@@ -251,28 +224,6 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         // Use provided time range from context
         chartMinTime = new Date(props.viewStartTimestamp.value).getTime();
         chartMaxTime = new Date(props.viewEndTimestamp.value).getTime();
-        console.info("[ApacheGanttTimelineChart] Using provided time range from context");
-        
-        // Check if the range is too wide compared to actual data
-        if (seriesData.length > 0) {
-          let minDataTime = Infinity;
-          let maxDataTime = -Infinity;
-          seriesData.forEach(item => {
-            const startTime = item.value[1];
-            const endTime = item.value[2];
-            if (startTime < minDataTime) minDataTime = startTime;
-            if (endTime > maxDataTime) maxDataTime = endTime;
-          });
-          const dataRange = maxDataTime - minDataTime;
-          const viewRange = chartMaxTime - chartMinTime;
-          const ratio = viewRange / dataRange;
-          if (ratio > 10) {
-            console.warn("[ApacheGanttTimelineChart] WARNING: View range is", ratio.toFixed(1), "times wider than actual data!");
-            console.warn("  View range:", new Date(chartMinTime).toLocaleString(), "to", new Date(chartMaxTime).toLocaleString());
-            console.warn("  Data range:", new Date(minDataTime).toLocaleString(), "to", new Date(maxDataTime).toLocaleString());
-            console.warn("  Consider narrowing your viewStartTimestamp/viewEndTimestamp or leave them empty for auto-calculation");
-          }
-        }
       } else {
         // Calculate time range from actual data
         let minTime = Infinity;
@@ -290,11 +241,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         const padding = timeRange * 0.05;
         chartMinTime = minTime - padding;
         chartMaxTime = maxTime + padding;
-        console.info("[ApacheGanttTimelineChart] Calculated time range from data");
       }
-
-      console.info("[ApacheGanttTimelineChart] Time range - min:", new Date(chartMinTime).toLocaleString(), "max:", new Date(chartMaxTime).toLocaleString());
-      console.info("[ApacheGanttTimelineChart] Building ECharts option with", categories.length, "categories and", seriesData.length, "series items");
 
       const option: any = {
         tooltip: {
@@ -310,6 +257,13 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
           formatter: (params: any) => {
             if (!params.data) return "";
             const data = params.data;
+            
+            // If custom tooltip HTML is provided, use it
+            if (data.tooltipHTML) {
+              return data.tooltipHTML;
+            }
+            
+            // Otherwise, use default tooltip format
             return `
               <div style="font-weight: bold; margin-bottom: 6px; color: #fff;">${params.name}</div>
               <div style="line-height: 1.6; color: #ddd;">
@@ -435,7 +389,6 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
               const categoryIndex = api.value(0);
               const startTime = api.value(1);
               const endTime = api.value(2);
-              const duration = api.value(3);
               
               const start = api.coord([startTime, categoryIndex]);
               const end = api.coord([endTime, categoryIndex]);
@@ -446,13 +399,6 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
               const minWidth = props.minBarWidth || 2;
               if (barWidth < minWidth) {
                 barWidth = minWidth;
-              }
-
-              if (params.dataIndex === 0) {
-                console.info("[ApacheGanttTimelineChart] renderItem #0 - categoryIndex:", categoryIndex, "startTime:", startTime, "endTime:", endTime, "duration:", duration);
-                console.info("[ApacheGanttTimelineChart] renderItem #0 - start coord:", start, "end coord:", end, "height:", height);
-                console.info("[ApacheGanttTimelineChart] renderItem #0 - calculated width:", end[0] - start[0], "applied width:", barWidth, "minWidth:", minWidth);
-                console.info("[ApacheGanttTimelineChart] renderItem #0 - color:", api.visual("color"));
               }
 
               const rectShape = graphic.clipRectByRect(
@@ -511,26 +457,14 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         ]
       };
 
-      console.info("[ApacheGanttTimelineChart] Calling setOption on ECharts instance");
       chartInstance.current.setOption(option, { notMerge: false });
-      console.info("[ApacheGanttTimelineChart] setOption complete");
       setIsLoading(false);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Chart render error: ${errorMsg}`);
-      console.error("ApacheGanttTimelineChart error:", err);
       setIsLoading(false);
     }
   };
-
-  /**
-   * Initialize datasource - removed limit for now to show all data.
-   */
-  useEffect(() => {
-    if (props.itemsDatasource) {
-      console.info("[ApacheGanttTimelineChart] Init effect - datasource status:", props.itemsDatasource.status, "items:", props.itemsDatasource.items?.length);
-    }
-  }, []); // Empty dependency - only on mount
 
   /**
    * Lifecycle: initialize chart and watch for prop changes.

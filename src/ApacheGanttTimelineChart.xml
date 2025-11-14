@@ -60,9 +60,12 @@
                 </attributeTypes>
             </property>
 
-            <property key="popupWidget" type="widgets" dataSource="itemsDatasource" required="false">
-                <caption>Popup widget</caption>
-                <description>Widget to render in a popup when an item is selected. The widget will receive the item context.</description>
+            <property key="tooltipHTMLAttribute" type="attribute" dataSource="itemsDatasource" required="false">
+                <caption>Tooltip HTML attribute</caption>
+                <description>String attribute containing custom HTML to display in the tooltip on hover. Supports HTML formatting.</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
             </property>
 
             <property key="detailWidget" type="widgets" dataSource="itemsDatasource" required="false">
