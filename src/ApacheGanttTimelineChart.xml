@@ -60,17 +60,14 @@
                 </attributeTypes>
             </property>
 
-            <property key="tooltipHTMLAttribute" type="attribute" dataSource="itemsDatasource" required="false">
-                <caption>Tooltip HTML attribute</caption>
-                <description>String attribute containing custom HTML to display in the tooltip on hover. Supports HTML formatting.</description>
-                <attributeTypes>
-                    <attributeType name="String"/>
-                </attributeTypes>
+            <property key="tooltipHTMLAttribute" type="textTemplate" dataSource="itemsDatasource" required="false">
+                <caption>Tooltip HTML</caption>
+                <description>Custom HTML template to display in the tooltip on hover. Supports HTML formatting and expressions.</description>
             </property>
 
-            <property key="detailWidget" type="widgets" dataSource="itemsDatasource" required="false">
-                <caption>Detail widget</caption>
-                <description>Widget to render detailed item information (for example in a side panel). The widget will receive the item context.</description>
+            <property key="rowLabelContent" type="textTemplate" dataSource="itemsDatasource" required="false">
+                <caption>Row label</caption>
+                <description>Custom text/HTML template to display in the Y-axis row label. Supports expressions and ECharts rich text markers. Falls back to item display value if not provided.</description>
             </property>
 
             <property key="colorAttribute" type="attribute" dataSource="itemsDatasource" required="false">
@@ -107,6 +104,10 @@
             <property key="minBarWidth" type="integer" defaultValue="2">
                 <caption>Minimum bar width (px)</caption>
                 <description>Minimum width in pixels for timeline bars. If calculated bar width is smaller, this minimum will be applied. Default is 2.</description>
+            </property>
+            <property key="chartOptionsJSON" type="textTemplate" required="false">
+                <caption>Chart options JSON</caption>
+                <description>Advanced: JSON configuration to override or extend ECharts options. This will be merged with the default chart configuration. Example: {"tooltip": {"backgroundColor": "red"}, "grid": {"left": "30%"}}</description>
             </property>
         </propertyGroup>
     </properties>

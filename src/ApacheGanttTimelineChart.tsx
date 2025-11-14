@@ -20,10 +20,32 @@ interface CategoryRow {
 export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContainerProps): ReactElement {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
+  const itemsMapRef = useRef<Map<number, any>>(new Map()); // Map rowIndex to ObjectItem
   const [error, setError] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [_allItemsLoaded, setAllItemsLoaded] = useState<boolean>(false);
+
+  /**
+   * Deep merge helper to merge custom options into default options
+   */
+  const mergeOptions = (target: any, source: any): void => {
+    for (const key in source) {
+      if (source.hasOwnProperty(key)) {
+        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+          // If target doesn't have this key or it's not an object, create it
+          if (!target[key] || typeof target[key] !== 'object') {
+            target[key] = {};
+          }
+          // Recursively merge objects
+          mergeOptions(target[key], source[key]);
+        } else {
+          // For primitives and arrays, directly assign
+          target[key] = source[key];
+        }
+      }
+    }
+  };
 
   /**
    * Transform Mendix datasource into ECharts series data.
@@ -34,6 +56,9 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
     const categories: CategoryRow[] = [];
     const seriesData: any[] = [];
     let rowIndex = 0;
+
+    // Clear previous item mapping
+    itemsMapRef.current.clear();
 
     // Validate required props
     if (!props.itemsDatasource?.items || props.itemsDatasource.items.length === 0) {
@@ -125,6 +150,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       const colorValue = props.colorAttribute ? props.colorAttribute?.get(item).value : undefined;
       const color = colorValue || "#1890ff";
       const tooltipHTML = props.tooltipHTMLAttribute ? props.tooltipHTMLAttribute?.get(item).value : undefined;
+      const rowLabelHTML = props.rowLabelContent ? props.rowLabelContent?.get(item).value : undefined;
 
       // If item has a parent and parent hasn't been added yet, add parent row
       if (props.parentUuidAttribute) {
@@ -144,11 +170,14 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       }
 
       // Add item as a row
-      const displayName = item.displayValue || `Item ${itemId}`;
+      const displayName = rowLabelHTML || item.displayValue || `Item ${itemId}`;
       categories.push({
         name: displayName,
         isParent: false
       });
+
+      // Store the ObjectItem reference for this row
+      itemsMapRef.current.set(rowIndex, item);
 
       // Add series data point for this event
       seriesData.push({
@@ -161,7 +190,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         startStr: new Date(startDate).toLocaleString(),
         endStr: new Date(endDate).toLocaleString(),
         tooltipHTML: tooltipHTML,
-        originalObject: item
+        rowIndex: rowIndex // Store rowIndex to retrieve ObjectItem later
       });
 
       rowIndex++;
@@ -186,6 +215,15 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
    */
   const renderChart = () => {
     if (!chartRef.current) {
+      return;
+    }
+
+    // Check if the container has valid dimensions before initializing
+    const containerWidth = chartRef.current.clientWidth;
+    const containerHeight = chartRef.current.clientHeight;
+    
+    if (containerWidth === 0 || containerHeight === 0) {
+      // Container not ready yet, skip rendering
       return;
     }
 
@@ -321,7 +359,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
           }
         ],
         grid: {
-          left: "25%",
+          left: "15%",
           right: "5%",
           top: 50,
           bottom: 40
@@ -351,10 +389,14 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
           axisLabel: {
             formatter: (value: string, index: number) => {
               const cat = categories[index];
+              // Strip HTML tags and return plain text for ECharts
+              // ECharts uses Canvas rendering and cannot render HTML directly
+              const strippedValue = value.replace(/<[^>]*>/g, '');
+              
               if (cat && cat.isParent) {
-                return "{parent|" + value + "}";
+                return "{parent|" + strippedValue + "}";
               }
-              return "{child|" + value + "}";
+              return "{child|" + strippedValue + "}";
             },
             rich: {
               parent: {
@@ -457,7 +499,35 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         ]
       };
 
+      // Merge custom chart options if provided
+      if (props.chartOptionsJSON?.value) {
+        try {
+          const customOptions = JSON.parse(props.chartOptionsJSON.value);
+          // Deep merge custom options with default options
+          mergeOptions(option, customOptions);
+        } catch (parseError) {
+          console.error("Failed to parse chartOptionsJSON:", parseError);
+          setError("Invalid JSON in chart options configuration");
+        }
+      }
+
       chartInstance.current.setOption(option, { notMerge: false });
+      
+      // Add click event handler
+      chartInstance.current.off('click'); // Remove any existing click handlers
+      chartInstance.current.on('click', (params: any) => {
+        if (params.componentType === 'series' && params.data && params.data.rowIndex !== undefined) {
+          // Retrieve the ObjectItem from our map using the rowIndex
+          const clickedItem = itemsMapRef.current.get(params.data.rowIndex);
+          if (clickedItem && props.onClickAction) {
+            const action = props.onClickAction.get(clickedItem);
+            if (action.canExecute) {
+              action.execute();
+            }
+          }
+        }
+      });
+      
       setIsLoading(false);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);

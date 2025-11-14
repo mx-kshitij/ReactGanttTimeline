@@ -3,8 +3,8 @@
  * WARNING: All changes made to this file will be overwritten
  * @author Mendix Widgets Framework Team
  */
-import { ComponentType, CSSProperties, ReactNode } from "react";
-import { EditableValue, ListValue, ListActionValue, ListAttributeValue, ListWidgetValue } from "mendix";
+import { CSSProperties } from "react";
+import { DynamicValue, EditableValue, ListValue, ListActionValue, ListAttributeValue, ListExpressionValue } from "mendix";
 import { Big } from "big.js";
 
 export interface ApacheGanttTimelineChartContainerProps {
@@ -18,13 +18,14 @@ export interface ApacheGanttTimelineChartContainerProps {
     parentUuidAttribute?: ListAttributeValue<Big | string>;
     startDatetimeAttribute: ListAttributeValue<Date>;
     endDatetimeAttribute: ListAttributeValue<Date>;
-    tooltipHTMLAttribute?: ListAttributeValue<string>;
-    detailWidget?: ListWidgetValue;
+    tooltipHTMLAttribute?: ListExpressionValue<string>;
+    rowLabelContent?: ListExpressionValue<string>;
     colorAttribute?: ListAttributeValue<string>;
     onClickAction?: ListActionValue;
     viewStartTimestamp?: EditableValue<Date>;
     viewEndTimestamp?: EditableValue<Date>;
     minBarWidth: number;
+    chartOptionsJSON?: DynamicValue<string>;
 }
 
 export interface ApacheGanttTimelineChartPreviewProps {
@@ -44,10 +45,11 @@ export interface ApacheGanttTimelineChartPreviewProps {
     startDatetimeAttribute: string;
     endDatetimeAttribute: string;
     tooltipHTMLAttribute: string;
-    detailWidget: { widgetCount: number; renderer: ComponentType<{ children: ReactNode; caption?: string }> };
+    rowLabelContent: string;
     colorAttribute: string;
     onClickAction: {} | null;
     viewStartTimestamp: string;
     viewEndTimestamp: string;
     minBarWidth: number | null;
+    chartOptionsJSON: string;
 }
