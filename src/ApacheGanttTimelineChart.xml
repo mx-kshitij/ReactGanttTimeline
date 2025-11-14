@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget id="mendix.apachegantttimelinechart.ApacheGanttTimelineChart" pluginWidget="true" needsEntityContext="true" offlineCapable="true"
+        supportedPlatform="Web"
+        xmlns="http://www.mendix.com/widget/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd">
+    <name>Apache Gantt Timeline Chart</name>
+    <description>My widget description</description>
+    <icon/>
+    <properties>
+        <propertyGroup caption="Data">
+            <property key="itemsDatasource" type="datasource" isList="true" required="true">
+                <caption>Items datasource</caption>
+                <description>List datasource providing the items/events for the chart (parents or flat event list).</description>
+            </property>
+
+            <property key="sortAttribute" type="attribute" dataSource="itemsDatasource" required="false">
+                <caption>Sort attribute</caption>
+                <description>Integer attribute on the datasource used for sorting (expected Integer).</description>
+                <attributeTypes>
+                    <attributeType name="Integer"/>
+                    <attributeType name="Long"/>
+                </attributeTypes>
+            </property>
+
+            <property key="itemUuidAttribute" type="attribute" dataSource="itemsDatasource" required="true">
+                <caption>Item UUID attribute</caption>
+                <description>Attribute that uniquely identifies an item (Integer, AutoNumber or String). Use the attribute selector to pick the attribute from your entity.</description>
+                <attributeTypes>
+                    <attributeType name="AutoNumber"/>
+                    <attributeType name="String"/>
+                    <attributeType name="Integer"/>
+                    <attributeType name="Long"/>
+                </attributeTypes>
+            </property>
+
+            <property key="parentUuidAttribute" type="attribute" dataSource="itemsDatasource" required="false">
+                <caption>Parent UUID attribute</caption>
+                <description>Attribute on the item that references the parent's UUID (used to build parent-child relationships when using a flat event list).</description>
+                <attributeTypes>
+                    <attributeType name="AutoNumber"/>
+                    <attributeType name="String"/>
+                    <attributeType name="Integer"/>
+                    <attributeType name="Long"/>
+                </attributeTypes>
+            </property>
+
+            <property key="startDatetimeAttribute" type="attribute" dataSource="itemsDatasource" required="true">
+                <caption>Start datetime attribute</caption>
+                <description>Date/time attribute representing event start (use a DateTime attribute).</description>
+                <attributeTypes>
+                    <attributeType name="DateTime"/>
+                </attributeTypes>
+            </property>
+
+            <property key="endDatetimeAttribute" type="attribute" dataSource="itemsDatasource" required="true">
+                <caption>End datetime attribute</caption>
+                <description>Date/time attribute representing event end (use a DateTime attribute).</description>
+                <attributeTypes>
+                    <attributeType name="DateTime"/>
+                </attributeTypes>
+            </property>
+
+            <property key="popupWidget" type="widgets" dataSource="itemsDatasource" required="false">
+                <caption>Popup widget</caption>
+                <description>Widget to render in a popup when an item is selected. The widget will receive the item context.</description>
+            </property>
+
+            <property key="detailWidget" type="widgets" dataSource="itemsDatasource" required="false">
+                <caption>Detail widget</caption>
+                <description>Widget to render detailed item information (for example in a side panel). The widget will receive the item context.</description>
+            </property>
+
+            <property key="colorAttribute" type="attribute" dataSource="itemsDatasource" required="false">
+                <caption>Color attribute</caption>
+                <description>String attribute on the datasource that contains a color value (e.g. "#ff4d4f"). Used to color events if present.</description>
+                <attributeTypes>
+                    <attributeType name="String"/>
+                </attributeTypes>
+            </property>
+
+            <property key="onClickAction" type="action" dataSource="itemsDatasource" required="false">
+                <caption>On item click action</caption>
+                <description>Action to call when an item is clicked. The clicked item will be passed as the context.</description>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Time Range">
+            <property key="viewStartTimestamp" type="attribute" required="false">
+                <caption>View start timestamp</caption>
+                <description>DateTime attribute from context object defining the start of the visible time range (x-axis minimum).</description>
+                <attributeTypes>
+                    <attributeType name="DateTime"/>
+                </attributeTypes>
+            </property>
+
+            <property key="viewEndTimestamp" type="attribute" required="false">
+                <caption>View end timestamp</caption>
+                <description>DateTime attribute from context object defining the end of the visible time range (x-axis maximum).</description>
+                <attributeTypes>
+                    <attributeType name="DateTime"/>
+                </attributeTypes>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Appearance">
+            <property key="minBarWidth" type="integer" defaultValue="2">
+                <caption>Minimum bar width (px)</caption>
+                <description>Minimum width in pixels for timeline bars. If calculated bar width is smaller, this minimum will be applied. Default is 2.</description>
+            </property>
+        </propertyGroup>
+    </properties>
+</widget>
