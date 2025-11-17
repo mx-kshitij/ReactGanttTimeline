@@ -25,6 +25,7 @@ export interface ApacheGanttTimelineChartContainerProps {
     viewStartTimestamp?: EditableValue<Date>;
     viewEndTimestamp?: EditableValue<Date>;
     minBarWidth: number;
+    minRowHeight: number;
     chartOptionsJSON?: DynamicValue<string>;
 }
 
@@ -51,5 +52,6 @@ export interface ApacheGanttTimelineChartPreviewProps {
     viewStartTimestamp: string;
     viewEndTimestamp: string;
     minBarWidth: number | null;
+    minRowHeight: number | null;
     chartOptionsJSON: string;
 }

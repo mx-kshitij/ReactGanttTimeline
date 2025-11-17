@@ -245,11 +245,17 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         return;
       }
 
-      // Calculate chart height based on number of rows - cap at reasonable height for virtualization
-      const rowHeight = 30;
-      const minHeight = 400;
-      const maxHeight = 800; // Cap height to 800px, users scroll through chart
-      const calculatedHeight = Math.max(minHeight, Math.min(maxHeight, categories.length * rowHeight + 100));
+      // Calculate chart height based on minimum row height
+      const minRowHeight = props.minRowHeight || 40;
+      const rowCount = categories.length;
+      const maxVisibleRows = 10; // Show max 10 rows without scrolling
+      const needsScroll = rowCount > maxVisibleRows;
+      
+      // Calculate dataZoom end percentage for Y-axis
+      const yAxisZoomEnd = needsScroll ? (maxVisibleRows / rowCount) * 100 : 100;
+      
+      // Set chart container height
+      const calculatedHeight = Math.max(400, Math.min(800, rowCount * minRowHeight + 100));
       if (chartRef.current) {
         chartRef.current.style.height = `${calculatedHeight}px`;
       }
@@ -344,7 +350,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
             top: 70,
             bottom: 40,
             start: 0,
-            end: 100,
+            end: yAxisZoomEnd,
             handleSize: 0,
             showDetail: false
           },
@@ -352,10 +358,11 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
             type: "inside",
             yAxisIndex: 0,
             start: 0,
-            end: 100,
+            end: yAxisZoomEnd,
             zoomOnMouseWheel: false,
             moveOnMouseMove: true,
-            moveOnMouseWheel: false
+            moveOnMouseWheel: true,
+            orient: "vertical"
           }
         ],
         grid: {
@@ -512,6 +519,13 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       }
 
       chartInstance.current.setOption(option, { notMerge: false });
+      
+      // Resize chart to ensure it fits within container
+      setTimeout(() => {
+        if (chartInstance.current) {
+          chartInstance.current.resize();
+        }
+      }, 0);
       
       // Add click event handler
       chartInstance.current.off('click'); // Remove any existing click handlers
