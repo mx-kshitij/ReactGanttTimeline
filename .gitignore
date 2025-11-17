@@ -18,3 +18,6 @@ mendixProject
 **/screenshot-results
 **/tests/testProject
 **/artifacts
+
+# GitHub Copilot instructions
+.github/copilot-instructions.md
