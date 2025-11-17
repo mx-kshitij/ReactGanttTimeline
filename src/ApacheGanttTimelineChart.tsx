@@ -1,229 +1,104 @@
 import { ReactElement, createElement, useEffect, useRef, useState } from "react";
-import { init, graphic, use } from "echarts/core";
+import { init, use } from "echarts/core";
 import { CustomChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, TitleComponent, DataZoomComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { ApacheGanttTimelineChartContainerProps } from "../typings/ApacheGanttTimelineChartProps";
+import {
+  CHART_CONFIG,
+  mergeOptions,
+  calculateTimeRange,
+  calculateChartHeight,
+  calculateYAxisZoomEnd
+} from "./utils/chartHelpers";
+import { transformData } from "./utils/dataTransformer";
+import { buildChartOptions } from "./utils/chartOptions";
 import "./ui/ApacheGanttTimelineChart.css";
 
-// Register only the components and renderers we need for minimal bundle
+/**
+ * Register ECharts components for minimal bundle size.
+ * Only include what we actually use in the chart.
+ */
 use([CustomChart, GridComponent, TooltipComponent, TitleComponent, DataZoomComponent, CanvasRenderer]);
 
-interface CategoryRow {
-  name: string;
-  isParent: boolean;
-}
-
-// Batch size for lazy loading (currently disabled, set to 10 for testing)
-// const BATCH_SIZE = 1000;
-
+/**
+ * Apache Gantt Timeline Chart Widget
+ * 
+ * A Mendix pluggable widget that renders timeline/Gantt chart using ECharts.
+ * Supports hierarchical parent-child relationships, custom tooltips, row labels,
+ * and advanced configuration through JSON options.
+ * 
+ * Key Features:
+ * - Timeline visualization with customizable bars
+ * - Vertical and horizontal scrolling/zooming
+ * - Parent-child hierarchical grouping
+ * - Custom HTML tooltips
+ * - Configurable row heights and bar widths
+ * - Click actions on timeline items
+ * - JSON-based advanced configuration
+ */
 export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContainerProps): ReactElement {
+  // ========== Refs ==========
+  /** Reference to the DOM element that contains the chart */
   const chartRef = useRef<HTMLDivElement>(null);
+  
+  /** Reference to the ECharts instance */
   const chartInstance = useRef<any>(null);
-  const itemsMapRef = useRef<Map<number, any>>(new Map()); // Map rowIndex to ObjectItem
+  
+  /** Map of rowIndex to Mendix ObjectItem for click event handling */
+  const itemsMapRef = useRef<Map<number, any>>(new Map());
+
+  // ========== State ==========
+  /** Error message to display to the user */
   const [error, setError] = useState<string>("");
+  
+  /** Loading progress percentage (0-100) */
   const [progress, setProgress] = useState<number>(0);
+  
+  /** Whether the chart is currently loading/processing data */
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  /** Whether all items from datasource have been loaded (for potential lazy loading) */
   const [_allItemsLoaded, setAllItemsLoaded] = useState<boolean>(false);
 
+  // ========== Helper Functions ==========
+
   /**
-   * Deep merge helper to merge custom options into default options
+   * Updates the loading progress state.
+   * Progress is displayed as a percentage bar to the user.
+   * 
+   * @param value - Progress percentage (0-100)
    */
-  const mergeOptions = (target: any, source: any): void => {
-    for (const key in source) {
-      if (source.hasOwnProperty(key)) {
-        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-          // If target doesn't have this key or it's not an object, create it
-          if (!target[key] || typeof target[key] !== 'object') {
-            target[key] = {};
-          }
-          // Recursively merge objects
-          mergeOptions(target[key], source[key]);
-        } else {
-          // For primitives and arrays, directly assign
-          target[key] = source[key];
-        }
-      }
-    }
+  const updateProgress = (value: number): void => {
+    setProgress(value);
   };
 
-  /**
-   * Transform Mendix datasource into ECharts series data.
-   * Handles hierarchical parent-child relationships and flat event lists.
-   * Processes current items batch and shows progress.
-   */
-  const transformData = (): { categories: CategoryRow[]; seriesData: any[] } => {
-    const categories: CategoryRow[] = [];
-    const seriesData: any[] = [];
-    let rowIndex = 0;
-
-    // Clear previous item mapping
-    itemsMapRef.current.clear();
-
-    // Validate required props
-    if (!props.itemsDatasource?.items || props.itemsDatasource.items.length === 0) {
-      setProgress(0);
-      return { categories, seriesData };
-    }
-
-    const totalItems = props.itemsDatasource.items.length;
-
-    // Update progress at start
-    setProgress(10);
-
-    // Collect items and build parent-child hierarchy
-    const items = props.itemsDatasource.items || [];
-    const itemsMap = new Map<string, any>();
-    const parentItems = new Map<string, any[]>();
-
-    // First pass: group items by parent
-    items.forEach((item: any, index: number) => {
-      const itemId = item.id;
-      itemsMap.set(String(itemId), item);
-
-      // Update progress during grouping (10-30%)
-      if (index % 100 === 0) {
-        const groupProgress = 10 + Math.floor((index / totalItems) * 20);
-        setProgress(groupProgress);
-      }
-
-      // Check if there's a parent association
-      if (props.parentUuidAttribute) {
-        const parentId = props.parentUuidAttribute?.get(item).value;
-        if (parentId) {
-          const parentIdStr = String(parentId);
-          if (!parentItems.has(parentIdStr)) {
-            parentItems.set(parentIdStr, []);
-          }
-          parentItems.get(parentIdStr)!.push(item);
-        }
-      }
-    });
-
-    setProgress(35);
-
-    // Sort items if sortAttribute is provided
-    const sortedItems = props.sortAttribute
-      ? items.sort(
-          (a: any, b: any) => {
-            const aVal = props.sortAttribute?.get(a).value;
-            const bVal = props.sortAttribute?.get(b).value;
-            const aNum = aVal ? Number(aVal) : 0;
-            const bNum = bVal ? Number(bVal) : 0;
-            return aNum - bNum;
-          }
-        )
-      : items;
-
-    setProgress(40);
-
-    // Build categories and series data
-    const processedParents = new Set<string>();
-
-    sortedItems.forEach((item: any, index: number) => {
-      // Update progress during data transformation (40-90%)
-      if (index % 100 === 0) {
-        const transformProgress = 40 + Math.floor((index / totalItems) * 50);
-        setProgress(transformProgress);
-      }
-      const itemId = item.id;
-      
-      // For ListAttributeValue, use the get() method on the attribute with the item parameter
-      const startDateObj = props.startDatetimeAttribute?.get(item);
-      const endDateObj = props.endDatetimeAttribute?.get(item);
-      const startDate = startDateObj?.value;
-      const endDate = endDateObj?.value;
-
-      // Skip if dates are invalid
-      if (!startDate || !endDate) {
-        return;
-      }
-
-      const startTime = new Date(startDate).getTime();
-      const endTime = new Date(endDate).getTime();
-
-      if (isNaN(startTime) || isNaN(endTime)) {
-        return;
-      }
-
-      const durationMin = Math.round((endTime - startTime) / 60000);
-      const colorValue = props.colorAttribute ? props.colorAttribute?.get(item).value : undefined;
-      const color = colorValue || "#1890ff";
-      const tooltipHTML = props.tooltipHTMLAttribute ? props.tooltipHTMLAttribute?.get(item).value : undefined;
-      const rowLabelHTML = props.rowLabelContent ? props.rowLabelContent?.get(item).value : undefined;
-
-      // If item has a parent and parent hasn't been added yet, add parent row
-      if (props.parentUuidAttribute) {
-        const parentId = props.parentUuidAttribute?.get(item).value;
-        const parentIdStr = String(parentId);
-        if (parentId && !processedParents.has(parentIdStr)) {
-          const parentItem = itemsMap.get(parentIdStr);
-          if (parentItem) {
-            categories.push({
-              name: parentItem.displayValue || `Parent ${parentId}`,
-              isParent: true
-            });
-            processedParents.add(parentIdStr);
-            rowIndex++;
-          }
-        }
-      }
-
-      // Add item as a row
-      const displayName = rowLabelHTML || item.displayValue || `Item ${itemId}`;
-      categories.push({
-        name: displayName,
-        isParent: false
-      });
-
-      // Store the ObjectItem reference for this row
-      itemsMapRef.current.set(rowIndex, item);
-
-      // Add series data point for this event
-      seriesData.push({
-        name: displayName,
-        value: [rowIndex, startTime, endTime, durationMin],
-        itemStyle: {
-          color: color
-        },
-        state: "normal",
-        startStr: new Date(startDate).toLocaleString(),
-        endStr: new Date(endDate).toLocaleString(),
-        tooltipHTML: tooltipHTML,
-        rowIndex: rowIndex // Store rowIndex to retrieve ObjectItem later
-      });
-
-      rowIndex++;
-    });
-
-    setProgress(95);
-
-    // Check if we have more items to load
-    const hasMoreItems = props.itemsDatasource?.hasMoreItems || false;
-    if (hasMoreItems) {
-      setAllItemsLoaded(false);
-    } else {
-      setAllItemsLoaded(true);
-    }
-
-    setProgress(100);
-    return { categories, seriesData };
-  };
+  // ========== Chart Rendering ==========
 
   /**
-   * Initialize or update the ECharts instance.
+   * Initializes or updates the ECharts instance with current data and configuration.
+   * 
+   * This function:
+   * 1. Validates container dimensions
+   * 2. Transforms Mendix data into ECharts format
+   * 3. Calculates chart height and time range
+   * 4. Builds ECharts option configuration
+   * 5. Applies custom JSON options if provided
+   * 6. Sets up click event handlers
+   * 7. Handles errors gracefully
    */
   const renderChart = () => {
     if (!chartRef.current) {
       return;
     }
 
-    // Check if the container has valid dimensions before initializing
+    // Validate container has valid dimensions before initializing ECharts
+    // This prevents the "Can't get DOM width or height" warning
     const containerWidth = chartRef.current.clientWidth;
     const containerHeight = chartRef.current.clientHeight;
     
     if (containerWidth === 0 || containerHeight === 0) {
-      // Container not ready yet, skip rendering
+      // Container not ready yet, skip rendering and wait for next cycle
       return;
     }
 
@@ -231,286 +106,63 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       setError("");
       setIsLoading(true);
 
-      // Get or create chart instance
+      // Initialize ECharts instance if not already created
       if (!chartInstance.current) {
         chartInstance.current = init(chartRef.current);
       }
 
-      const { categories, seriesData } = transformData();
+      // Transform Mendix datasource into ECharts format using extracted utility
+      const { categories, seriesData } = transformData(props, itemsMapRef, updateProgress, setAllItemsLoaded);
 
-      // If no data, show placeholder
+      // Early return if no data available
       if (categories.length === 0 || seriesData.length === 0) {
         chartInstance.current.clear();
         setIsLoading(false);
         return;
       }
 
-      // Calculate chart height based on minimum row height
-      const minRowHeight = props.minRowHeight || 40;
+      // ===== Calculate chart dimensions and scroll behavior =====
+      const minRowHeight = props.minRowHeight || CHART_CONFIG.DEFAULT_MIN_ROW_HEIGHT;
       const rowCount = categories.length;
-      const maxVisibleRows = 10; // Show max 10 rows without scrolling
-      const needsScroll = rowCount > maxVisibleRows;
+      const yAxisZoomEnd = calculateYAxisZoomEnd(rowCount);
       
-      // Calculate dataZoom end percentage for Y-axis
-      const yAxisZoomEnd = needsScroll ? (maxVisibleRows / rowCount) * 100 : 100;
-      
-      // Set chart container height
-      const calculatedHeight = Math.max(400, Math.min(800, rowCount * minRowHeight + 100));
+      // Set chart container height dynamically based on row count
+      const calculatedHeight = calculateChartHeight(rowCount, minRowHeight);
       if (chartRef.current) {
         chartRef.current.style.height = `${calculatedHeight}px`;
       }
 
-      // Use provided time range from context or calculate from data
+      // ===== Determine X-axis time range =====
       let chartMinTime: number;
       let chartMaxTime: number;
 
       if (props.viewStartTimestamp?.value && props.viewEndTimestamp?.value) {
-        // Use provided time range from context
+        // Use provided time range from widget configuration
         chartMinTime = new Date(props.viewStartTimestamp.value).getTime();
         chartMaxTime = new Date(props.viewEndTimestamp.value).getTime();
       } else {
-        // Calculate time range from actual data
-        let minTime = Infinity;
-        let maxTime = -Infinity;
-        
-        seriesData.forEach(item => {
-          const startTime = item.value[1];
-          const endTime = item.value[2];
-          if (startTime < minTime) minTime = startTime;
-          if (endTime > maxTime) maxTime = endTime;
-        });
-
-        // Add 5% padding on each side for better visualization
-        const timeRange = maxTime - minTime;
-        const padding = timeRange * 0.05;
-        chartMinTime = minTime - padding;
-        chartMaxTime = maxTime + padding;
+        // Calculate time range from actual data with padding
+        const timeRange = calculateTimeRange(seriesData);
+        chartMinTime = timeRange.chartMinTime;
+        chartMaxTime = timeRange.chartMaxTime;
       }
 
-      const option: any = {
-        tooltip: {
-          trigger: "item",
-          backgroundColor: "rgba(50, 50, 50, 0.9)",
-          borderColor: "#333",
-          borderWidth: 1,
-          textStyle: {
-            color: "#fff",
-            fontSize: 12
-          },
-          padding: [8, 12],
-          formatter: (params: any) => {
-            if (!params.data) return "";
-            const data = params.data;
-            
-            // If custom tooltip HTML is provided, use it
-            if (data.tooltipHTML) {
-              return data.tooltipHTML;
-            }
-            
-            // Otherwise, use default tooltip format
-            return `
-              <div style="font-weight: bold; margin-bottom: 6px; color: #fff;">${params.name}</div>
-              <div style="line-height: 1.6; color: #ddd;">
-                <div>Start: ${data.startStr}</div>
-                <div>End: ${data.endStr}</div>
-                <div>Duration: <strong>${data.value[3]} min</strong></div>
-              </div>
-            `;
-          }
-        },
-        dataZoom: [
-          {
-            type: "slider",
-            xAxisIndex: 0,
-            filterMode: "weakFilter",
-            height: 20,
-            bottom: 0,
-            start: 0,
-            end: 100,
-            handleIcon: "path://M10.7,11.9H9.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4h1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
-            handleSize: "80%",
-            showDetail: false
-          },
-          {
-            type: "inside",
-            xAxisIndex: 0,
-            filterMode: "weakFilter",
-            start: 0,
-            end: 100,
-            zoomOnMouseWheel: false,
-            moveOnMouseMove: true,
-            moveOnMouseWheel: false
-          },
-          {
-            type: "slider",
-            yAxisIndex: 0,
-            zoomLock: true,
-            width: 10,
-            right: 10,
-            top: 70,
-            bottom: 40,
-            start: 0,
-            end: yAxisZoomEnd,
-            handleSize: 0,
-            showDetail: false
-          },
-          {
-            type: "inside",
-            yAxisIndex: 0,
-            start: 0,
-            end: yAxisZoomEnd,
-            zoomOnMouseWheel: false,
-            moveOnMouseMove: true,
-            moveOnMouseWheel: true,
-            orient: "vertical"
-          }
-        ],
-        grid: {
-          left: "15%",
-          right: "5%",
-          top: 50,
-          bottom: 40
-        },
-        xAxis: {
-          type: "time",
-          min: chartMinTime,
-          max: chartMaxTime,
-          scale: true,
-          axisLabel: {
-            formatter: (value: number) => {
-              const date = new Date(value);
-              return date.getHours() + ":" + String(date.getMinutes()).padStart(2, "0") + ":" + String(date.getSeconds()).padStart(2, "0");
-            }
-          },
-          splitLine: {
-            show: true,
-            lineStyle: {
-              color: "#e8e8e8",
-              type: "dashed"
-            }
-          }
-        },
-        yAxis: {
-          type: "category",
-          data: categories.map(c => c.name),
-          axisLabel: {
-            formatter: (value: string, index: number) => {
-              const cat = categories[index];
-              // Strip HTML tags and return plain text for ECharts
-              // ECharts uses Canvas rendering and cannot render HTML directly
-              const strippedValue = value.replace(/<[^>]*>/g, '');
-              
-              if (cat && cat.isParent) {
-                return "{parent|" + strippedValue + "}";
-              }
-              return "{child|" + strippedValue + "}";
-            },
-            rich: {
-              parent: {
-                fontWeight: "bold",
-                fontSize: 13,
-                color: "#1890ff",
-                backgroundColor: "#e6f7ff",
-                padding: [4, 8],
-                borderRadius: 4
-              } as any,
-              child: {
-                fontSize: 11,
-                color: "#595959",
-                padding: [2, 8, 2, 20]
-              } as any
-            }
-          },
-          axisTick: {
-            show: false
-          },
-          splitLine: {
-            show: true,
-            lineStyle: {
-              color: "#f0f0f0"
-            }
-          }
-        },
-        series: [
-          {
-            type: "custom",
-            renderItem: (params: any, api: any) => {
-              const categoryIndex = api.value(0);
-              const startTime = api.value(1);
-              const endTime = api.value(2);
-              
-              const start = api.coord([startTime, categoryIndex]);
-              const end = api.coord([endTime, categoryIndex]);
-              const height = api.size([0, 1])[1] * 0.6;
+      // ===== Build ECharts Configuration using extracted utility =====
+      const minBarWidth = props.minBarWidth || CHART_CONFIG.DEFAULT_MIN_BAR_WIDTH;
+      const option: any = buildChartOptions({
+        categories,
+        seriesData,
+        chartMinTime,
+        chartMaxTime,
+        yAxisZoomEnd,
+        minBarWidth
+      });
 
-              // Calculate bar width and apply minimum
-              let barWidth = end[0] - start[0];
-              const minWidth = props.minBarWidth || 2;
-              if (barWidth < minWidth) {
-                barWidth = minWidth;
-              }
-
-              const rectShape = graphic.clipRectByRect(
-                {
-                  x: start[0],
-                  y: start[1] - height / 2,
-                  width: barWidth,
-                  height: height
-                },
-                {
-                  x: params.coordSys.x,
-                  y: params.coordSys.y,
-                  width: params.coordSys.width,
-                  height: params.coordSys.height
-                }
-              );
-
-              return (
-                rectShape && {
-                  type: "group",
-                  children: [
-                    {
-                      type: "rect",
-                      transition: ["shape"],
-                      shape: rectShape,
-                      style: {
-                        fill: api.visual("color"),
-                        stroke: "#fff",
-                        lineWidth: 1,
-                        opacity: 0.9
-                      }
-                    },
-                    {
-                      type: "text",
-                      style: {
-                        text: api.value(3) + "m",
-                        x: start[0] + barWidth / 2,
-                        y: start[1],
-                        fill: "#fff",
-                        fontSize: 10,
-                        fontWeight: "bold",
-                        textAlign: "center",
-                        textVerticalAlign: "middle"
-                      }
-                    }
-                  ]
-                }
-              );
-            },
-            encode: {
-              x: [1, 2],
-              y: 0
-            },
-            data: seriesData
-          }
-        ]
-      };
-
-      // Merge custom chart options if provided
+      // ===== Apply Custom JSON Options =====
+      // Allow users to override/extend default options via JSON configuration
       if (props.chartOptionsJSON?.value) {
         try {
           const customOptions = JSON.parse(props.chartOptionsJSON.value);
-          // Deep merge custom options with default options
           mergeOptions(option, customOptions);
         } catch (parseError) {
           console.error("Failed to parse chartOptionsJSON:", parseError);
@@ -518,20 +170,23 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
         }
       }
 
+      // Apply the configuration to the chart
       chartInstance.current.setOption(option, { notMerge: false });
       
-      // Resize chart to ensure it fits within container
+      // ===== Resize Chart =====
+      // Ensure chart fits properly within container after option update
       setTimeout(() => {
         if (chartInstance.current) {
           chartInstance.current.resize();
         }
       }, 0);
       
-      // Add click event handler
-      chartInstance.current.off('click'); // Remove any existing click handlers
+      // ===== Setup Click Event Handler =====
+      chartInstance.current.off('click');  // Remove any previous handlers
       chartInstance.current.on('click', (params: any) => {
+        // Handle clicks on timeline bars
         if (params.componentType === 'series' && params.data && params.data.rowIndex !== undefined) {
-          // Retrieve the ObjectItem from our map using the rowIndex
+          // Retrieve the Mendix ObjectItem using the stored rowIndex
           const clickedItem = itemsMapRef.current.get(params.data.rowIndex);
           if (clickedItem && props.onClickAction) {
             const action = props.onClickAction.get(clickedItem);
@@ -544,18 +199,27 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       
       setIsLoading(false);
     } catch (err) {
+      // Handle any errors during rendering
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Chart render error: ${errorMsg}`);
       setIsLoading(false);
     }
   };
 
+  // ========== Lifecycle Hooks ==========
+
   /**
-   * Lifecycle: initialize chart and watch for prop changes.
+   * Effect: Render chart when props change
+   * 
+   * Re-renders the chart whenever any relevant prop changes.
+   * Also sets up window resize handler to keep chart responsive.
+   * 
+   * Dependencies: All props that affect chart rendering
    */
   useEffect(() => {
     renderChart();
 
+    // Handle window resize to keep chart responsive
     const handleResize = () => {
       if (chartInstance.current) {
         chartInstance.current.resize();
@@ -580,7 +244,10 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
   ]);
 
   /**
-   * Cleanup: dispose chart on unmount.
+   * Effect: Cleanup on unmount
+   * 
+   * Disposes the ECharts instance when the component unmounts
+   * to prevent memory leaks.
    */
   useEffect(() => {
     return () => {
@@ -591,9 +258,13 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
     };
   }, []);
 
+  // ========== Render ==========
   return (
     <div className="apache-gantt-timeline-chart-container">
+      {/* Error banner - shown when there's an error */}
       {error && <div className="error-banner">{error}</div>}
+      
+      {/* Loading progress bar - shown during data transformation */}
       {isLoading && (
         <div className="progress-bar-container">
           <div className="progress-bar-label">Loading and processing data... {progress}%</div>
@@ -602,6 +273,8 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
           </div>
         </div>
       )}
+      
+      {/* Chart container - ECharts will be initialized here */}
       <div ref={chartRef} className="apache-gantt-chart" />
     </div>
   );
