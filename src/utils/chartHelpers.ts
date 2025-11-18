@@ -6,6 +6,8 @@
  * calculations, and formatting.
  */
 
+import { format } from "date-fns";
+
 /**
  * Configuration constants for the chart behavior
  */
@@ -123,14 +125,25 @@ export const calculateYAxisZoomEnd = (rowCount: number): number => {
 };
 
 /**
- * Formats a timestamp for display in axis labels.
+ * Formats a timestamp for display in axis labels using date-fns.
  * 
  * @param timestamp - Time value in milliseconds
- * @returns Formatted time string (HH:MM:SS)
+ * @param formatString - Format string using date-fns tokens (e.g., "HH:mm:ss", "MM/dd HH:mm", "yyyy-MM-dd HH:mm")
+ * @returns Formatted time string
+ * 
+ * @see https://date-fns.org/docs/format for all available format tokens
+ * 
+ * @example
+ * formatTimeLabel(1234567890000, "HH:mm:ss") // "13:00:00"
+ * formatTimeLabel(1234567890000, "MM/dd/yyyy") // "02/13/2009"
+ * formatTimeLabel(1234567890000, "MMM d, h:mm a") // "Feb 13, 1:00 PM"
  */
-export const formatTimeLabel = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  return date.getHours() + ":" + 
-         String(date.getMinutes()).padStart(2, "0") + ":" + 
-         String(date.getSeconds()).padStart(2, "0");
+export const formatTimeLabel = (timestamp: number, formatString: string = "HH:mm:ss"): string => {
+  try {
+    return format(new Date(timestamp), formatString);
+  } catch (error) {
+    // Fallback to ISO string if format fails
+    console.error("Invalid date format string:", formatString, error);
+    return new Date(timestamp).toISOString();
+  }
 };

@@ -149,13 +149,17 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
 
       // ===== Build ECharts Configuration using extracted utility =====
       const minBarWidth = props.minBarWidth || CHART_CONFIG.DEFAULT_MIN_BAR_WIDTH;
+      const timeFormat = props.timeFormat?.value || "HH:mm:ss";
+      const containerWidth = chartRef.current?.clientWidth || 0;
       const option: any = buildChartOptions({
         categories,
         seriesData,
         chartMinTime,
         chartMaxTime,
         yAxisZoomEnd,
-        minBarWidth
+        minBarWidth,
+        timeFormat,
+        containerWidth
       });
 
       // ===== Apply Custom JSON Options =====

@@ -19,6 +19,8 @@ export interface ChartOptionsParams {
   chartMaxTime: number;
   yAxisZoomEnd: number;
   minBarWidth: number;
+  timeFormat?: string;
+  containerWidth?: number;
 }
 
 /**
@@ -28,10 +30,14 @@ export interface ChartOptionsParams {
  * @returns ECharts option configuration object
  */
 export const buildChartOptions = (params: ChartOptionsParams): any => {
-  const { categories, seriesData, chartMinTime, chartMaxTime, yAxisZoomEnd, minBarWidth } = params;
+  const { categories, seriesData, chartMinTime, chartMaxTime, yAxisZoomEnd, minBarWidth, timeFormat = "HH:mm:ss", containerWidth } = params;
+
+  // Calculate Y-axis label width based on container width (15% of container, matching grid.left)
+  // Fallback to 150px if containerWidth not provided
+  const yAxisLabelWidth = containerWidth ? Math.floor(containerWidth * 0.15) - 20 : 150;
 
   return {
-    // Tooltip configuration - shown on hover over timeline bars
+    // Tooltip configuration - shown on hover over timeline bars and axis labels
     tooltip: {
       trigger: "item",
       backgroundColor: "rgba(50, 50, 50, 0.9)",
@@ -42,7 +48,16 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
         fontSize: 12
       },
       padding: [8, 12],
+      // Show tooltip on axis labels to display full text
+      axisPointer: {
+        type: "none"
+      },
       formatter: (tooltipParams: any) => {
+        // Handle Y-axis label hover to show full text
+        if (tooltipParams.componentType === "yAxis") {
+          return tooltipParams.value;
+        }
+        
         if (!tooltipParams.data) return "";
         const data = tooltipParams.data;
         
@@ -71,7 +86,7 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
         xAxisIndex: 0,
         filterMode: "weakFilter",
         height: 20,
-        bottom: 0,
+        top: 0,
         start: 0,
         end: 100,
         handleIcon: "path://M10.7,11.9H9.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4h1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
@@ -131,7 +146,7 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
       max: chartMaxTime,
       scale: true,
       axisLabel: {
-        formatter: formatTimeLabel
+        formatter: (value: number) => formatTimeLabel(value, timeFormat)
       },
       splitLine: {
         show: true,
@@ -147,6 +162,10 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
       type: "category",
       data: categories.map(c => c.name),
       axisLabel: {
+        // Enable text overflow handling with ellipsis
+        overflow: "truncate",
+        ellipsis: "...",
+        width: yAxisLabelWidth,  // Calculated based on container width
         formatter: (value: string, index: number) => {
           const cat = categories[index];
           // Strip HTML tags since ECharts Canvas rendering cannot display HTML
@@ -183,7 +202,9 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
         lineStyle: {
           color: "#f0f0f0"
         }
-      }
+      },
+      // Enable tooltip on Y-axis to show full label text
+      triggerEvent: true
     },
 
     // Series configuration - custom rendered timeline bars
@@ -195,6 +216,12 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
           const categoryIndex = api.value(0);  // Y position (row index)
           const startTime = api.value(1);      // Start timestamp
           const endTime = api.value(2);        // End timestamp
+          const durationMin = api.value(3);    // Duration in minutes
+          
+          // Get custom bar label from data if available
+          const dataIndex = renderParams.dataIndex;
+          const barLabel = seriesData[dataIndex]?.barLabel;
+          const labelText = barLabel || `${durationMin}m`;
           
           // Convert data coordinates to pixel coordinates
           const start = api.coord([startTime, categoryIndex]);
@@ -224,6 +251,24 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
             }
           );
 
+          // Determine if label should be inside or outside the bar
+          // Estimate text width (roughly 6px per character for 10px font)
+          const estimatedTextWidth = labelText.length * 6;
+          const shouldShowLabelOutside = barWidth < estimatedTextWidth + 10; // 10px padding
+          
+          // Position label inside or above the bar based on width
+          // If too narrow, show above to avoid overlap with adjacent bars
+          const labelX = shouldShowLabelOutside 
+            ? start[0] + barWidth / 2  // Centered above bar
+            : start[0] + barWidth / 2;  // Centered in bar
+          
+          const labelY = shouldShowLabelOutside
+            ? start[1] - height / 2 - 5  // 5px above the bar
+            : start[1];  // Vertically centered in bar
+          
+          const labelAlign = "center";
+          const labelFill = shouldShowLabelOutside ? "#333" : "#fff";
+
           // Return the rendered bar with duration label
           return (
             rectShape && {
@@ -241,17 +286,17 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
                     opacity: 0.9
                   }
                 },
-                // Duration text label inside the bar
+                // Duration text label inside or above the bar
                 {
                   type: "text",
                   style: {
-                    text: api.value(3) + "m",  // Duration in minutes
-                    x: start[0] + barWidth / 2,
-                    y: start[1],
-                    fill: "#fff",
+                    text: labelText,
+                    x: labelX,
+                    y: labelY,
+                    fill: labelFill,
                     fontSize: 10,
                     fontWeight: "bold",
-                    textAlign: "center",
+                    textAlign: labelAlign,
                     textVerticalAlign: "middle"
                   }
                 }

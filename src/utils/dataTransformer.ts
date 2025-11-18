@@ -147,6 +147,7 @@ export const transformData = (
     const color = colorValue || "#1890ff";
     const tooltipHTML = props.tooltipHTMLAttribute ? props.tooltipHTMLAttribute?.get(item).value : undefined;
     const rowLabelHTML = props.rowLabelContent ? props.rowLabelContent?.get(item).value : undefined;
+    const barLabelText = props.barLabelContent ? props.barLabelContent?.get(item).value : undefined;
 
     // Add parent row if this item has a parent that hasn't been added yet
     if (props.parentUuidAttribute) {
@@ -186,6 +187,7 @@ export const transformData = (
       startStr: new Date(startDate).toLocaleString(),
       endStr: new Date(endDate).toLocaleString(),
       tooltipHTML: tooltipHTML,
+      barLabel: barLabelText,
       rowIndex: rowIndex
     });
 

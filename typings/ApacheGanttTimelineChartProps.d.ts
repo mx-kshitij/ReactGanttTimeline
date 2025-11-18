@@ -20,12 +20,14 @@ export interface ApacheGanttTimelineChartContainerProps {
     endDatetimeAttribute: ListAttributeValue<Date>;
     tooltipHTMLAttribute?: ListExpressionValue<string>;
     rowLabelContent?: ListExpressionValue<string>;
+    barLabelContent?: ListExpressionValue<string>;
     colorAttribute?: ListAttributeValue<string>;
     onClickAction?: ListActionValue;
     viewStartTimestamp?: EditableValue<Date>;
     viewEndTimestamp?: EditableValue<Date>;
     minBarWidth: number;
     minRowHeight: number;
+    timeFormat?: DynamicValue<string>;
     chartOptionsJSON?: DynamicValue<string>;
 }
 
@@ -47,11 +49,13 @@ export interface ApacheGanttTimelineChartPreviewProps {
     endDatetimeAttribute: string;
     tooltipHTMLAttribute: string;
     rowLabelContent: string;
+    barLabelContent: string;
     colorAttribute: string;
     onClickAction: {} | null;
     viewStartTimestamp: string;
     viewEndTimestamp: string;
     minBarWidth: number | null;
     minRowHeight: number | null;
+    timeFormat: string;
     chartOptionsJSON: string;
 }

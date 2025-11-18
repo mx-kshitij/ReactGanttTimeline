@@ -70,6 +70,11 @@
                 <description>Custom text/HTML template to display in the Y-axis row label. Supports expressions and ECharts rich text markers. Falls back to item display value if not provided.</description>
             </property>
 
+            <property key="barLabelContent" type="textTemplate" dataSource="itemsDatasource" required="false">
+                <caption>Bar label</caption>
+                <description>Custom text template to display inside the timeline bar. Supports expressions. If not provided, defaults to duration in minutes (e.g., "45m").</description>
+            </property>
+
             <property key="colorAttribute" type="attribute" dataSource="itemsDatasource" required="false">
                 <caption>Color attribute</caption>
                 <description>String attribute on the datasource that contains a color value (e.g. "#ff4d4f"). Used to color events if present.</description>
@@ -108,6 +113,10 @@
             <property key="minRowHeight" type="integer" defaultValue="40">
                 <caption>Minimum row height (px)</caption>
                 <description>Minimum height in pixels for each row in the chart. Default is 40.</description>
+            </property>
+            <property key="timeFormat" type="textTemplate" required="false">
+                <caption>Time format</caption>
+                <description>Format string for displaying timestamps on the X-axis using date-fns format tokens. Examples: "HH:mm:ss", "HH:mm", "MM/dd HH:mm", "MM/dd/yyyy", "yyyy-MM-dd HH:mm", "MMM d, h:mm a". Default is "HH:mm:ss". See https://date-fns.org/docs/format for all format options.</description>
             </property>
             <property key="chartOptionsJSON" type="textTemplate" required="false">
                 <caption>Chart options JSON</caption>
