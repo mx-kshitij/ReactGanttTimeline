@@ -91,7 +91,7 @@
         <propertyGroup caption="Time Range">
             <property key="viewStartTimestamp" type="attribute" required="false">
                 <caption>View start timestamp</caption>
-                <description>DateTime attribute from context object defining the start of the visible time range (x-axis minimum).</description>
+                <description>DateTime attribute from context object defining the start of the visible time range (x-axis minimum). Also used as the minimum value for the date filter slider.</description>
                 <attributeTypes>
                     <attributeType name="DateTime"/>
                 </attributeTypes>
@@ -99,10 +99,15 @@
 
             <property key="viewEndTimestamp" type="attribute" required="false">
                 <caption>View end timestamp</caption>
-                <description>DateTime attribute from context object defining the end of the visible time range (x-axis maximum).</description>
+                <description>DateTime attribute from context object defining the end of the visible time range (x-axis maximum). Also used as the maximum value for the date filter slider.</description>
                 <attributeTypes>
                     <attributeType name="DateTime"/>
                 </attributeTypes>
+            </property>
+
+            <property key="enableDateFilter" type="boolean" defaultValue="false">
+                <caption>Enable date filter slider</caption>
+                <description>Show a date range filter slider that allows filtering timeline bars within the view start/end timestamp range. The slider does not modify the view timestamps, only filters visible bars.</description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Appearance">

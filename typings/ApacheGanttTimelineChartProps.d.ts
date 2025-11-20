@@ -25,6 +25,7 @@ export interface ApacheGanttTimelineChartContainerProps {
     onClickAction?: ListActionValue;
     viewStartTimestamp?: EditableValue<Date>;
     viewEndTimestamp?: EditableValue<Date>;
+    enableDateFilter: boolean;
     minBarWidth: number;
     minRowHeight: number;
     timeFormat?: DynamicValue<string>;
@@ -54,6 +55,7 @@ export interface ApacheGanttTimelineChartPreviewProps {
     onClickAction: {} | null;
     viewStartTimestamp: string;
     viewEndTimestamp: string;
+    enableDateFilter: boolean;
     minBarWidth: number | null;
     minRowHeight: number | null;
     timeFormat: string;

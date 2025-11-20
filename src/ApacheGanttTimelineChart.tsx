@@ -9,10 +9,12 @@ import {
   mergeOptions,
   calculateTimeRange,
   calculateChartHeight,
-  calculateYAxisZoomEnd
+  calculateYAxisZoomEnd,
+  // formatTimeLabel
 } from "./utils/chartHelpers";
 import { transformData } from "./utils/dataTransformer";
 import { buildChartOptions } from "./utils/chartOptions";
+import { DateRangeFilter } from "./components/DateRangeFilter";
 import "./ui/ApacheGanttTimelineChart.css";
 
 /**
@@ -60,6 +62,9 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
   
   /** Whether all items from datasource have been loaded (for potential lazy loading) */
   const [_allItemsLoaded, setAllItemsLoaded] = useState<boolean>(false);
+
+  /** Date range filter state - min and max timestamps for filtering */
+  const [filterRange, setFilterRange] = useState<{ min: number; max: number } | null>(null);
 
   // ========== Helper Functions ==========
 
@@ -114,8 +119,47 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       // Transform Mendix datasource into ECharts format using extracted utility
       const { categories, seriesData } = transformData(props, itemsMapRef, updateProgress, setAllItemsLoaded);
 
+      // Apply date range filter if enabled
+      let filteredSeriesData = seriesData;
+      let filteredCategories = categories;
+      
+      if (props.enableDateFilter && filterRange) {
+        // Filter series data based on date range
+        filteredSeriesData = seriesData.filter(item => {
+          const itemStart = item.value[1];
+          const itemEnd = item.value[2];
+          // Include item if it overlaps with the filter range
+          return itemEnd >= filterRange.min && itemStart <= filterRange.max;
+        });
+
+        // Get unique row indices from filtered data
+        const usedRowIndices = new Set(filteredSeriesData.map(item => item.value[0]));
+        
+        // Filter categories to only include rows that have data
+        filteredCategories = categories.filter((_, index) => usedRowIndices.has(index));
+        
+        // Remap row indices to be sequential
+        const oldToNewIndexMap = new Map<number, number>();
+        Array.from(usedRowIndices)
+          .sort((a, b) => a - b)
+          .forEach((oldIndex, newIndex) => {
+            oldToNewIndexMap.set(oldIndex, newIndex);
+          });
+        
+        // Update series data with new row indices
+        filteredSeriesData = filteredSeriesData.map(item => ({
+          ...item,
+          value: [
+            oldToNewIndexMap.get(item.value[0]) ?? 0,
+            item.value[1],
+            item.value[2],
+            item.value[3]
+          ]
+        }));
+      }
+
       // Early return if no data available
-      if (categories.length === 0 || seriesData.length === 0) {
+      if (filteredCategories.length === 0 || filteredSeriesData.length === 0) {
         chartInstance.current.clear();
         setIsLoading(false);
         return;
@@ -123,7 +167,7 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
 
       // ===== Calculate chart dimensions and scroll behavior =====
       const minRowHeight = props.minRowHeight || CHART_CONFIG.DEFAULT_MIN_ROW_HEIGHT;
-      const rowCount = categories.length;
+      const rowCount = filteredCategories.length;
       const yAxisZoomEnd = calculateYAxisZoomEnd(rowCount);
       
       // Set chart container height dynamically based on row count
@@ -135,16 +179,27 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       // ===== Determine X-axis time range =====
       let chartMinTime: number;
       let chartMaxTime: number;
+      let filterMinTime: number;
+      let filterMaxTime: number;
 
       if (props.viewStartTimestamp?.value && props.viewEndTimestamp?.value) {
         // Use provided time range from widget configuration
         chartMinTime = new Date(props.viewStartTimestamp.value).getTime();
         chartMaxTime = new Date(props.viewEndTimestamp.value).getTime();
+        filterMinTime = chartMinTime;
+        filterMaxTime = chartMaxTime;
       } else {
         // Calculate time range from actual data with padding
-        const timeRange = calculateTimeRange(seriesData);
+        const timeRange = calculateTimeRange(filteredSeriesData);
         chartMinTime = timeRange.chartMinTime;
         chartMaxTime = timeRange.chartMaxTime;
+        filterMinTime = chartMinTime;
+        filterMaxTime = chartMaxTime;
+      }
+      
+      // Initialize filter range if not set and filter is enabled
+      if (props.enableDateFilter && !filterRange) {
+        setFilterRange({ min: filterMinTime, max: filterMaxTime });
       }
 
       // ===== Build ECharts Configuration using extracted utility =====
@@ -152,8 +207,8 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
       const timeFormat = props.timeFormat?.value || "HH:mm:ss";
       const containerWidth = chartRef.current?.clientWidth || 0;
       const option: any = buildChartOptions({
-        categories,
-        seriesData,
+        categories: filteredCategories,
+        seriesData: filteredSeriesData,
         chartMinTime,
         chartMaxTime,
         yAxisZoomEnd,
@@ -244,7 +299,8 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
     props.sortAttribute,
     props.colorAttribute,
     props.viewStartTimestamp,
-    props.viewEndTimestamp
+    props.viewEndTimestamp,
+    filterRange
   ]);
 
   /**
@@ -263,6 +319,21 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
   }, []);
 
   // ========== Render ==========
+  
+  // Get filter bounds from viewStart and viewEnd timestamps
+  const getFilterBounds = (): { min: number; max: number } | null => {
+    if (props.viewStartTimestamp?.value && props.viewEndTimestamp?.value) {
+      return {
+        min: new Date(props.viewStartTimestamp.value).getTime(),
+        max: new Date(props.viewEndTimestamp.value).getTime()
+      };
+    }
+    return null;
+  };
+  
+  const filterBounds = getFilterBounds();
+  const timeFormat = props.timeFormat?.value || "HH:mm:ss";
+  
   return (
     <div className="apache-gantt-timeline-chart-container">
       {/* Error banner - shown when there's an error */}
@@ -276,6 +347,17 @@ export function ApacheGanttTimelineChart(props: ApacheGanttTimelineChartContaine
             <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
+      )}
+      
+      {/* Date Range Filter - shown when enabled */}
+      {props.enableDateFilter && filterBounds && filterRange && (
+        <DateRangeFilter
+          minTime={filterBounds.min}
+          maxTime={filterBounds.max}
+          currentRange={filterRange}
+          timeFormat={timeFormat}
+          onRangeChange={setFilterRange}
+        />
       )}
       
       {/* Chart container - ECharts will be initialized here */}

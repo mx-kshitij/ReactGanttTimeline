@@ -298,6 +298,136 @@
   }
 }
 
+/* Date Filter Styles - Matches chart theme */
+.gantt-date-filter {
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.gantt-date-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gantt-date-filter-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gantt-date-filter-reset {
+  padding: 4px 12px;
+  background-color: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gantt-date-filter-reset:hover {
+  background-color: #fafafa;
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.gantt-date-filter-reset:active {
+  background-color: #f0f0f0;
+}
+
+.gantt-date-filter-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.gantt-date-filter-slider-container {
+  flex: 1;
+  min-width: 200px;
+  padding: 0 8px;
+}
+
+/* Override rc-slider styles to match chart theme */
+.gantt-date-filter-range-slider .rc-slider-rail {
+  background-color: #e8e8e8;
+  height: 4px;
+}
+
+.gantt-date-filter-range-slider .rc-slider-track {
+  background-color: #1890ff;
+  height: 4px;
+}
+
+.gantt-date-filter-range-slider .rc-slider-handle {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  background-color: #1890ff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  opacity: 1;
+}
+
+.gantt-date-filter-range-slider .rc-slider-handle:hover {
+  background-color: #40a9ff;
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.3);
+}
+
+.gantt-date-filter-range-slider .rc-slider-handle:active {
+  box-shadow: 0 0 5px rgba(24, 144, 255, 0.5);
+}
+
+.gantt-date-filter-range-slider .rc-slider-handle-dragging {
+  border-color: #fff !important;
+  box-shadow: 0 0 0 5px rgba(24, 144, 255, 0.12) !important;
+}
+
+.gantt-date-filter-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1890ff;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: nowrap;
+  min-width: 90px;
+  text-align: center;
+  background-color: #f0f5ff;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid #d6e4ff;
+}
+
+/* Responsive adjustments for date filter */
+@media (max-width: 768px) {
+  .gantt-date-filter {
+    padding: 12px;
+  }
+
+  .gantt-date-filter-title {
+    font-size: 12px;
+  }
+
+  .gantt-date-filter-value {
+    font-size: 11px;
+    min-width: 80px;
+  }
+
+  .gantt-date-filter-reset {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+}
+
 /* Print styles */
 @media print {
   .apache-gantt-timeline-chart-container {

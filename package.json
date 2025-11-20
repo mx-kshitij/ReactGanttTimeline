@@ -31,7 +31,8 @@
   "dependencies": {
     "classnames": "^2.2.6",
     "date-fns": "^4.1.0",
-    "echarts": "^5.4.3"
+    "echarts": "^5.4.3",
+    "rc-slider": "^11.1.9"
   },
   "resolutions": {
     "react": "^18.2.0",

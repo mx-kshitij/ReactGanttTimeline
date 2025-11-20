@@ -136,7 +136,7 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
       left: "15%",   // Space for Y-axis labels
       right: "5%",   // Space for vertical scrollbar
       top: 50,       // Space for title/legend
-      bottom: 40     // Space for X-axis and horizontal scrollbar
+      bottom: 40     // Space for X-axis labels
     },
 
     // X-Axis configuration - time axis (horizontal)
@@ -282,8 +282,7 @@ export const buildChartOptions = (params: ChartOptionsParams): any => {
                   style: {
                     fill: api.visual("color"),
                     stroke: "#fff",
-                    lineWidth: 1,
-                    opacity: 0.9
+                    lineWidth: 1
                   }
                 },
                 // Duration text label inside or above the bar
