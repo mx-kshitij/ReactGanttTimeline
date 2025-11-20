@@ -110,6 +110,7 @@ export const transformData = (
 
   // ===== Phase 3: Build categories and series data =====
   const processedParents = new Set<string>();
+  const rowLabelToIndex = new Map<string, number>(); // Map row labels to their row index
 
   sortedItems.forEach((item: any, index: number) => {
     // Update progress during data transformation (40-90%)
@@ -166,20 +167,34 @@ export const transformData = (
       }
     }
 
-    // Add item as a category row
+    // Determine the display name for this item
     const displayName = rowLabelHTML || item.displayValue || `Item ${itemId}`;
-    categories.push({
-      name: displayName,
-      isParent: false
-    });
+    
+    // Check if we already have a row with this label
+    let currentRowIndex: number;
+    if (rowLabelToIndex.has(displayName)) {
+      // Reuse existing row index for this label
+      currentRowIndex = rowLabelToIndex.get(displayName)!;
+    } else {
+      // Create new category row for this label
+      categories.push({
+        name: displayName,
+        isParent: false
+      });
+      currentRowIndex = rowIndex;
+      rowLabelToIndex.set(displayName, currentRowIndex);
+      rowIndex++;
+    }
 
-    // Store ObjectItem reference for click event handling
-    itemsMapRef.current.set(rowIndex, item);
+    // Store ObjectItem reference for click event handling (first item for this row)
+    if (!itemsMapRef.current.has(currentRowIndex)) {
+      itemsMapRef.current.set(currentRowIndex, item);
+    }
 
     // Create series data point for this timeline bar
     seriesData.push({
       name: displayName,
-      value: [rowIndex, startTime, endTime, durationMin],
+      value: [currentRowIndex, startTime, endTime, durationMin],
       itemStyle: {
         color: color
       },
@@ -188,10 +203,8 @@ export const transformData = (
       endStr: new Date(endDate).toLocaleString(),
       tooltipHTML: tooltipHTML,
       barLabel: barLabelText,
-      rowIndex: rowIndex
+      rowIndex: currentRowIndex
     });
-
-    rowIndex++;
   });
 
   updateProgress(CHART_CONFIG.PROGRESS_STEPS.COMPLETE);
